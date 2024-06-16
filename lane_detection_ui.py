@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QPushButton, QFileDialog
 from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtCore import QTimer
 import cv2
 from lane_detection import LaneDetection
 import sys
@@ -9,6 +10,9 @@ class LaneDetectionApp(QMainWindow):
         super().__init__()
         self.lane_detection = LaneDetection()
         self.initUI()
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.process_frame)
+        self.cap = None
 
     def initUI(self):
         self.setWindowTitle("Lane Detection App")
@@ -26,17 +30,24 @@ class LaneDetectionApp(QMainWindow):
         options |= QFileDialog.ReadOnly
         video_path, _ = QFileDialog.getOpenFileName(self, "Open Video", "", "Video Files (*.mp4 *.avi)", options=options)
         if video_path:
+            print(f"Selected video path: {video_path}")
             self.cap = cv2.VideoCapture(video_path)
-            self.process_video()
+            if not self.cap.isOpened():
+                print("Error: Could not open video.")
+                return
+            self.timer.start(30)  # Process a frame every 30ms
 
-    def process_video(self):
-        while self.cap.isOpened():
+    def process_frame(self):
+        if self.cap.isOpened():
             ret, frame = self.cap.read()
             if not ret:
-                break
+                print("Finished processing video or failed to read frame.")
+                self.timer.stop()
+                self.cap.release()
+                return
+            print("Processing frame")
             processed_frame = self.lane_detection.process_frame(frame)
             self.display_frame(processed_frame)
-            cv2.waitKey(30)  # Delay for 30ms
 
     def display_frame(self, frame):
         rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -44,6 +55,7 @@ class LaneDetectionApp(QMainWindow):
         bytes_per_line = ch * w
         convert_to_Qt_format = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
         self.label.setPixmap(QPixmap.fromImage(convert_to_Qt_format))
+        print("Displayed frame")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
