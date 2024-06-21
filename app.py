@@ -2,9 +2,13 @@ from flask import Flask, request, jsonify, Response
 import cv2
 import numpy as np
 from lane_detection import LaneDetection
+import logging
 
 app = Flask(__name__)
 lane_detection = LaneDetection()
+
+# Set up logging
+logging.basicConfig(level=logging.DEBUG)
 
 @app.route('/')
 def index():
@@ -18,6 +22,7 @@ def process_frame():
     video_file = request.files['video']
     video_path = 'uploaded_video.mp4'
     video_file.save(video_path)
+    logging.debug(f"Saved video to {video_path}")
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
@@ -30,11 +35,13 @@ def process_frame():
         if not ret:
             break
         frame_count += 1
+        logging.debug(f"Processing frame {frame_count}")
         processed_frame = lane_detection.process_frame(frame)
         _, buffer = cv2.imencode('.jpg', processed_frame)
         processed_frames.append(buffer.tobytes())
 
     cap.release()
+    logging.debug(f"Total frames processed: {frame_count}")
 
     return Response(generate_frames(processed_frames), mimetype='multipart/x-mixed-replace; boundary=frame')
 
